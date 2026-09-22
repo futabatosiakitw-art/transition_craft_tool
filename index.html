@@ -24,15 +24,22 @@
     .generate-btn:hover { background: #218838; }
     .generate-btn:disabled { background: #666; cursor: not-allowed; }
     
-    canvas { 
+    /* メインプレビュー用キャンバス */
+    canvas.main-canvas { 
       width: 100%; aspect-ratio: 16/9; margin-top: 20px; border: 2px solid #111; border-radius: 4px;
       background: #111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23222"/><rect x="10" y="10" width="10" height="10" fill="%23222"/></svg>') repeat; 
     }
     
-    /* サムネイル選択エリア */
+    /* サムネイル選択エリア（アス比崩れ防止） */
     #thumb-container { display: none; margin-top: 10px; text-align: center; background: #222; padding: 10px; border-radius: 4px; }
     .thumb-wrapper { display: inline-block; position: relative; max-width: 100%; }
-    #thumb-canvas { cursor: crosshair; border: 2px solid #555; border-radius: 3px; max-height: 200px; width: auto; height: auto; display: block; margin: 0 auto; }
+    #thumb-canvas { 
+      cursor: crosshair; border: 2px solid #555; border-radius: 3px; 
+      max-height: 220px; max-width: 100%; 
+      width: auto !important; height: auto !important; 
+      aspect-ratio: auto !important; 
+      display: block; margin: 0 auto; 
+    }
     .thumb-tip { font-size: 0.8rem; color: #f1c40f; margin-top: 5px; }
 
     .download-link { display: none; text-align: center; background: #e67e22; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
@@ -147,7 +154,7 @@
     </div>
   </div>
 
-  <canvas id="canvas" width="1920" height="1080"></canvas>
+  <canvas id="canvas" class="main-canvas" width="1920" height="1080"></canvas>
 </div>
 
 <script>
@@ -200,7 +207,7 @@ img3Input.addEventListener('change', async (e) => {
     cImg3Obj = await loadImage(file);
     thumbContainer.style.display = 'block';
     
-    // サムネイルのアスペクト比を適切に計算 (縦長・横長対応)
+    // サムネイルのアスペクト比を完璧に維持
     const maxDim = 220;
     const aspect = cImg3Obj.width / cImg3Obj.height;
     if (aspect >= 1) {
@@ -334,7 +341,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型のロジック (ワイド配置＆フォーカス正確対応)
+// 2. コルクボード型のロジック (正確なフォーカスズーム対応)
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -352,23 +359,24 @@ function createCorkPattern() {
 
 function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}) {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rotation);
 
   const imgRatio = img.width / img.height;
   let bw, bh;
-  if (imgRatio > 1.1) { bw = 680; bh = 382; }  // 横長 (サイズアップ)
-  else if (imgRatio < 0.9) { bw = 382; bh = 680; } // 縦長 (サイズアップ)
+  if (imgRatio > 1.1) { bw = 680; bh = 382; }  // 横長
+  else if (imgRatio < 0.9) { bw = 382; bh = 680; } // 縦長
   else { bw = 500; bh = 500; }
   const padding = 22;
 
-  // 3枚目のメインがズームする時、クリックした場所が中心に寄るように正確に平行移動
+  // 3枚目のメインがズームする時、指定したクリック位置を中心に拡大させるための座標補正
+  let drawX = x;
+  let drawY = y;
   if (isCenterMain && zoomProgress > 0) {
-    const targetOffsetX = (0.5 - focus.x) * bw * zoomProgress;
-    const targetOffsetY = (0.5 - focus.y) * bh * zoomProgress;
-    ctx.translate(targetOffsetX, targetOffsetY);
+    drawX = x - (focus.x - 0.5) * bw * (scale - 1);
+    drawY = y - (focus.y - 0.5) * bh * (scale - 1);
   }
 
+  ctx.translate(drawX, drawY);
+  ctx.rotate(rotation);
   ctx.scale(scale, scale);
 
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -444,7 +452,6 @@ async function generateCorkboard() {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
 
-      // 左右の写真の配置をさらに外側にワイド化 ＆ サイズアップ
       const pLeft = getProgress(elapsed, 400, 900);
       if (pLeft > 0) {
         drawPhoto(imgL, w * 0.22, h/2 + 20, easeOutBack(pLeft), -12 * (Math.PI/180) * easeOutBack(pLeft), '#e74c3c');
