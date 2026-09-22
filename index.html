@@ -29,10 +29,14 @@
       background: #111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23222"/><rect x="10" y="10" width="10" height="10" fill="%23222"/></svg>') repeat; 
     }
     
+    /* サムネイル選択エリアのスタイル */
+    #thumb-container { display: none; margin-top: 10px; text-align: center; background: #222; padding: 10px; border-radius: 4px; }
+    #thumb-canvas { max-width: 240px; cursor: crosshair; border: 2px solid #555; border-radius: 3px; display: inline-block; }
+    .thumb-tip { font-size: 0.8rem; color: #f1c40f; margin-top: 5px; }
+
     .download-link { display: none; text-align: center; background: #e67e22; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
     .download-link:hover { background: #d35400; }
     
-    /* OBS設定ガイドのボックス */
     .obs-guide { background: #222; border-left: 4px solid #f1c40f; padding: 12px 15px; margin-top: 15px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5; }
     .obs-guide h4 { margin: 0 0 5px 0; color: #f1c40f; }
     .obs-guide ul { margin: 0; padding-left: 20px; color: #ccc; }
@@ -45,7 +49,6 @@
 <div class="container">
   <h2>🎬 OBS トランジション・メーカー</h2>
   
-  <!-- タブボタン -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('simple')">1. シンプル切替型</button>
     <button class="tab-btn" onclick="switchTab('corkboard')">2. コルクボード型</button>
@@ -92,7 +95,6 @@
       <h4>📌 OBS設定ガイド (シンプル切替型)</h4>
       <ul>
         <li><b>トランジションの種類:</b> スティンガー</li>
-        <li><b>動画ファイル:</b> ダウンロードしたファイルを選択</li>
         <li><b>トランジションポイント (ミリ秒):</b> <code>1500</code></li>
       </ul>
     </div>
@@ -101,29 +103,25 @@
   <!-- ================= タブ2: コルクボード型 ================= -->
   <div id="tab-corkboard" class="tab-content">
     <div class="step">
-      <label>① 左側に飾る写真 (横長・縦長どちらでもOK)</label>
+      <label>① 左側に飾る写真</label>
       <input type="file" id="c-img1" accept="image/png, image/jpeg">
     </div>
     <div class="step">
-      <label>② 右側に飾る写真 (横長・縦長どちらでもOK)</label>
+      <label>② 右側に飾る写真</label>
       <input type="file" id="c-img2" accept="image/png, image/jpeg">
     </div>
     <div class="step">
       <label>③ 中央に飾る写真（★最後にズームされるメイン）</label>
       <input type="file" id="c-img3" accept="image/png, image/jpeg">
-      <div class="note">※VRChat等の写真の比率に合わせて白フチと画鋲が自動フィットします</div>
+      
+      <!-- サムネイルによるクリック位置指定UI -->
+      <div id="thumb-container">
+        <div style="font-size:0.85rem; margin-bottom:5px; color:#ccc;">👇 アップ（ズーム）したい場所をクリックしてください</div>
+        <canvas id="thumb-canvas"></canvas>
+        <div class="thumb-tip" id="thumb-tip">📍 現在地: 中央 (クリックで変更可能)</div>
+      </div>
     </div>
-    <div class="step">
-      <label>④ 中央写真の「アップ（ズーム）する位置」を指定</label>
-      <select id="c-focus">
-        <option value="center">中央をアップ (デフォルト)</option>
-        <option value="top">上側をアップ (顔など)</option>
-        <option value="bottom">下側をアップ</option>
-        <option value="left">左側をアップ</option>
-        <option value="right">右側をアップ</option>
-      </select>
-      <div class="note">※ズームアップする時に写真のどの部分を大きくするか選べます</div>
-    </div>
+
     <button class="generate-btn" id="c-btn" onclick="generateCorkboard()">トランジション動画を生成 (約3.5秒)</button>
     <a id="c-download" class="download-link" download="corkboard_transition.webm">📥 WebMをダウンロード</a>
 
@@ -131,13 +129,11 @@
       <h4>📌 OBS設定ガイド (コルクボード型)</h4>
       <ul>
         <li><b>トランジションの種類:</b> スティンガー</li>
-        <li><b>動画ファイル:</b> ダウンロードしたファイルを選択</li>
-        <li><b>トランジションポイント (ミリ秒):</b> <code>2800</code> (※中央の写真が一番大きくなってぼやけた瞬間)</li>
+        <li><b>トランジションポイント (ミリ秒):</b> <code>2800</code></li>
       </ul>
     </div>
   </div>
 
-  <!-- 共有プレビュー用キャンバス -->
   <canvas id="canvas" width="1920" height="1080"></canvas>
 </div>
 
@@ -171,6 +167,71 @@ const loadImage = (file) => {
     reader.readAsDataURL(file);
   });
 };
+
+// ==========================================
+// 3枚目写真のサムネイル ＆ クリック位置指定ロジック
+// ==========================================
+let cImg3Obj = null;
+let focusPoint = { x: 0.5, y: 0.5 }; // 初期値は中央 (0.5, 0.5)
+
+const img3Input = document.getElementById('c-img3');
+const thumbContainer = document.getElementById('thumb-container');
+const thumbCanvas = document.getElementById('thumb-canvas');
+const thumbCtx = thumbCanvas.getContext('2d');
+const thumbTip = document.getElementById('thumb-tip');
+
+img3Input.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    cImg3Obj = await loadImage(file);
+    thumbContainer.style.display = 'block';
+    
+    // サムネイルのサイズをアスペクト比に合わせて決定
+    const aspect = cImg3Obj.width / cImg3Obj.height;
+    thumbCanvas.width = 240;
+    thumbCanvas.height = 240 / aspect;
+    
+    focusPoint = { x: 0.5, y: 0.5 }; // 新規画像選択時は中央にリセット
+    drawThumbnail();
+  } catch(err) {
+    console.log(err);
+  }
+});
+
+function drawThumbnail() {
+  if (!cImg3Obj) return;
+  thumbCtx.clearRect(0, 0, thumbCanvas.width, thumbCanvas.height);
+  thumbCtx.drawImage(cImg3Obj, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+  // クリックされた位置に照準（赤丸と十字）を描画
+  const px = focusPoint.x * thumbCanvas.width;
+  const py = focusPoint.y * thumbCanvas.height;
+
+  thumbCtx.strokeStyle = '#e74c3c';
+  thumbCtx.lineWidth = 2;
+  thumbCtx.beginPath();
+  thumbCtx.arc(px, py, 10, 0, Math.PI * 2);
+  thumbCtx.stroke();
+
+  thumbCtx.fillStyle = '#e74c3c';
+  thumbCtx.beginPath();
+  thumbCtx.arc(px, py, 3, 0, Math.PI * 2);
+  thumbCtx.fill();
+}
+
+thumbCanvas.addEventListener('click', (e) => {
+  const rect = thumbCanvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  // キャンバス上の実サイズ比率に変換
+  focusPoint.x = Math.max(0, Math.min(1, clickX / thumbCanvas.clientWidth));
+  focusPoint.y = Math.max(0, Math.min(1, clickY / thumbCanvas.clientHeight));
+
+  drawThumbnail();
+  thumbTip.textContent = `📍 指定位置: X=${Math.round(focusPoint.x*100)}%, Y=${Math.round(focusPoint.y*100)}%`;
+});
 
 // ==========================================
 // 1. シンプル切替型のロジック
@@ -256,7 +317,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型のロジック (フォーカス位置対応)
+// 2. コルクボード型のロジック (クリック位置ズーム対応)
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -272,10 +333,18 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
-function drawPhoto(img, x, y, scale, rotation, pinColor, focus = 'center', isZooming = false) {
+function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
+
+  // 3枚目のメイン写真がズームする際、クリックされた位置に向かって吸い込まれるように拡大する
+  if (isCenterMain && zoomProgress > 0) {
+    const offsetX = (0.5 - focus.x) * 600 * zoomProgress;
+    const offsetY = (0.5 - focus.y) * 450 * zoomProgress;
+    ctx.translate(offsetX, offsetY);
+  }
+
   ctx.scale(scale, scale);
 
   const imgRatio = img.width / img.height;
@@ -292,18 +361,7 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, focus = 'center', isZoo
   ctx.fillRect(-bw/2 - padding, -bh/2 - padding, bw + padding*2, bh + padding*2);
 
   ctx.shadowColor = 'transparent';
-
-  // ズーム時にフォーカス位置（どこをアップするか）に応じてオフセットを適用
-  let dx = -bw/2, dy = -bh/2, dw = bw, dh = bh;
-  if (isZooming && focus !== 'center') {
-    const shift = 0.25; // 寄せる強さ
-    if (focus === 'top') dy -= bh * shift;
-    if (focus === 'bottom') dy += bh * shift;
-    if (focus === 'left') dx -= bw * shift;
-    if (focus === 'right') dx += bw * shift;
-  }
-
-  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.drawImage(img, -bw/2, -bh/2, bw, bh);
 
   const pinY = -bh/2 - padding + 10;
   ctx.fillStyle = '#888';
@@ -319,7 +377,6 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, focus = 'center', isZoo
 async function generateCorkboard() {
   const btn = document.getElementById('c-btn');
   const dl = document.getElementById('c-download');
-  const focusVal = document.getElementById('c-focus').value;
 
   try {
     btn.disabled = true;
@@ -328,7 +385,7 @@ async function generateCorkboard() {
 
     const imgL = await loadImage(document.getElementById('c-img1').files[0]);
     const imgR = await loadImage(document.getElementById('c-img2').files[0]);
-    const imgC = await loadImage(document.getElementById('c-img3').files[0]);
+    const imgC = cImg3Obj || await loadImage(document.getElementById('c-img3').files[0]);
     if (!corkPattern) createCorkPattern();
 
     const totalDuration = 3500;
@@ -379,10 +436,11 @@ async function generateCorkboard() {
       const pCenterZoom = getProgress(elapsed, 1800, 2600);
       if (pCenterPop > 0) {
         const baseScale = easeOutBack(pCenterPop);
-        const zoomScale = baseScale + easeInOutCubic(pCenterZoom) * 3.5;
-        const rot = 5 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - easeInOutCubic(pCenterZoom));
-        const isZooming = pCenterZoom > 0;
-        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', focusVal, isZooming);
+        const zoomProg = easeInOutCubic(pCenterZoom);
+        const zoomScale = baseScale + zoomProg * 3.5;
+        const rot = 5 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - zoomProg);
+        
+        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint);
       }
 
       ctx.globalAlpha = 1.0;
