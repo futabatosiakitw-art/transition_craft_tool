@@ -20,6 +20,11 @@
     label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.95rem; }
     select, input[type="file"] { width: 100%; padding: 8px; background: #222; color: #fff; border: 1px solid #666; border-radius: 4px; box-sizing: border-box; }
     
+    /* スライダー用スタイル */
+    .range-wrap { display: flex; align-items: center; gap: 10px; }
+    input[type="range"] { flex: 1; cursor: pointer; accent-color: #28a745; }
+    .range-val { font-weight: bold; color: #f1c40f; min-width: 45px; text-align: right; }
+
     .generate-btn { width: 100%; background: #28a745; color: #fff; border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold; margin-top: 15px; padding: 15px; border-radius: 6px; transition: 0.2s; }
     .generate-btn:hover { background: #218838; }
     .generate-btn:disabled { background: #666; cursor: not-allowed; }
@@ -30,7 +35,7 @@
       background: #111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23222"/><rect x="10" y="10" width="10" height="10" fill="%23222"/></svg>') repeat; 
     }
     
-    /* サムネイル選択エリア（アス比崩れ防止） */
+    /* サムネイル選択エリア */
     #thumb-container { display: none; margin-top: 10px; text-align: center; background: #222; padding: 10px; border-radius: 4px; }
     .thumb-wrapper { display: inline-block; position: relative; max-width: 100%; }
     #thumb-canvas { 
@@ -122,7 +127,6 @@
       <label>③ 真ん中の写真（★最後にズームされるメイン）</label>
       <input type="file" id="c-img-c" accept="image/png, image/jpeg">
       
-      <!-- サムネイル選択エリア -->
       <div id="thumb-container">
         <div style="font-size:0.85rem; margin-bottom:5px; color:#f1c40f;">👇 アップ（ズーム）したい場所をクリックしてください</div>
         <div class="thumb-wrapper">
@@ -142,12 +146,10 @@
 
     <div class="step">
       <label>⑥ 真ん中写真のズーム倍率</label>
-      <select id="c-zoom-level">
-        <option value="2.5">控えめ (2.5倍)</option>
-        <option value="3.5" selected>標準 (3.5倍)</option>
-        <option value="5.0">しっかりアップ (5.0倍)</option>
-        <option value="7.0">超アップ (7.0倍)</option>
-      </select>
+      <div class="range-wrap">
+        <input type="range" id="c-zoom-level" min="2" max="9" step="0.5" value="5.0" oninput="document.getElementById('zoom-val').textContent = this.value">
+        <span class="range-val" id="zoom-val">5.0</span>倍
+      </div>
     </div>
 
     <button class="generate-btn" id="c-btn" onclick="generateCorkboard()">トランジション動画を生成 (約3.5秒)</button>
@@ -215,7 +217,6 @@ imgCenterInput.addEventListener('change', async (e) => {
     cImgCenterObj = await loadImage(file);
     thumbContainer.style.display = 'block';
     
-    // サムネイルのアスペクト比を完璧に維持
     const maxDim = 220;
     const aspect = cImgCenterObj.width / cImgCenterObj.height;
     if (aspect >= 1) {
@@ -349,7 +350,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型 (5枚レイアウト) のロジック
+// 2. コルクボード型 (5枚＋キラキラ・ハート演出) のロジック
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -365,13 +366,35 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
+// キラキラ・ハートのパーティクルを描画する関数
+function drawSparkles(x, y, progress) {
+  if (progress <= 0 || progress >= 1) return;
+  ctx.save();
+  const symbols = ['✨', '💖', '⭐', '✨'];
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    // 角度と距離をずらしながら外側にふわっと広げる
+    const angle = (i / count) * Math.PI * 2 + (i * 0.5);
+    const dist = progress * 120 + (i * 10);
+    const px = x + Math.cos(angle) * dist;
+    const py = y + Math.sin(angle) * dist;
+    
+    // 登場前半でフェードイン、後半でフェードアウト
+    const alpha = progress < 0.3 ? progress / 0.3 : 1 - (progress - 0.3) / 0.7;
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.font = `${Math.floor(20 + (i % 3) * 6)}px sans-serif`;
+    ctx.fillText(symbols[i % symbols.length], px, py);
+  }
+  ctx.restore();
+}
+
 function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}) {
   ctx.save();
 
   const imgRatio = img.width / img.height;
   let bw, bh;
-  if (imgRatio > 1.1) { bw = 540; bh = 303; }  // 横長 (5枚配置用に少しサイズ調整)
-  else if (imgRatio < 0.9) { bw = 303; bh = 540; } // 縦長
+  if (imgRatio > 1.1) { bw = 540; bh = 303; }
+  else if (imgRatio < 0.9) { bw = 303; bh = 540; }
   else { bw = 400; bh = 400; }
   const padding = 18;
 
@@ -463,31 +486,35 @@ async function generateCorkboard() {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
 
-      // 1. 左上写真
+      // 1. 左上写真 ＆ キラキラ
       const pTL = getProgress(elapsed, 300, 750);
       if (pTL > 0) {
         drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c');
+        drawSparkles(w * 0.22, h * 0.28, pTL);
       }
 
-      // 2. 右上写真
+      // 2. 右上写真 ＆ キラキラ
       const pTR = getProgress(elapsed, 400, 850);
       if (pTR > 0) {
         drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db');
+        drawSparkles(w * 0.78, h * 0.28, pTR);
       }
 
-      // 4. 左下写真
+      // 4. 左下写真 ＆ キラキラ
       const pBL = getProgress(elapsed, 500, 950);
       if (pBL > 0) {
         drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6');
+        drawSparkles(w * 0.22, h * 0.72, pBL);
       }
 
-      // 5. 右下写真
+      // 5. 右下写真 ＆ キラキラ
       const pBR = getProgress(elapsed, 600, 1050);
       if (pBR > 0) {
         drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71');
+        drawSparkles(w * 0.78, h * 0.72, pBR);
       }
 
-      // 3. 真ん中メイン写真 (最後に登場してズーム)
+      // 3. 真ん中メイン写真 (最後に登場してズーム) ＆ キラキラ
       const pCenterPop = getProgress(elapsed, 700, 1200);
       const pCenterZoom = getProgress(elapsed, 1800, 2600);
       if (pCenterPop > 0) {
@@ -497,6 +524,7 @@ async function generateCorkboard() {
         const rot = 4 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - zoomProg);
         
         drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint);
+        drawSparkles(w/2, h/2, pCenterPop);
       }
 
       ctx.globalAlpha = 1.0;
