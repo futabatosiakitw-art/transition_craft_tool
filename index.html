@@ -51,9 +51,17 @@
     }
     .thumb-tip { font-size: 0.8rem; color: #f1c40f; margin-top: 5px; }
 
+    /* ダウンロードリンクをプレビュー直下に移動 */
     .download-link { display: none; text-align: center; background: #e67e22; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
     .download-link:hover { background: #d35400; }
     
+    /* プロモーションバナーセクション */
+    .promo-section { text-align: center; margin-top: 25px; padding: 15px; background: #222; border-radius: 6px; border: 1px solid #444; }
+    .promo-banner { display: inline-block; max-width: 100%; margin-bottom: 8px; }
+    .promo-banner img { max-width: 100%; height: auto; border-radius: 4px; display: block; border: 1px solid #555; }
+    .twitter-link { display: inline-block; color: #1da1f2; text-decoration: none; font-weight: bold; font-size: 0.95rem; background: #1a1a1a; padding: 6px 15px; border-radius: 20px; border: 1px solid #1da1f2; transition: 0.2s; }
+    .twitter-link:hover { background: #1da1f2; color: #fff; }
+
     .obs-guide { background: #222; border-left: 4px solid #f1c40f; padding: 12px 15px; margin-top: 15px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5; }
     .obs-guide h4 { margin: 0 0 5px 0; color: #f1c40f; }
     .obs-guide ul { margin: 0; padding-left: 20px; color: #ccc; }
@@ -171,16 +179,16 @@
           <option value="star">⭐ スター</option>
           <option value="bubble">🫧 バブル</option>
         </select>
-        <label style="margin-top:8px;">サイズ・広がり:</label>
+        <label style="margin-top:8px;">サイズ・広がり (最大8倍):</label>
         <div class="range-wrap">
-          <input type="range" id="c-spawn-effect-size" min="1.0" max="5.0" step="0.5" value="3.0" oninput="document.getElementById('spawn-size-val').textContent = this.value">
+          <input type="range" id="c-spawn-effect-size" min="1.0" max="8.0" step="0.5" value="3.0" oninput="document.getElementById('spawn-size-val').textContent = this.value">
           <span class="range-val" id="spawn-size-val">3.0</span>倍
         </div>
       </div>
     </div>
 
     <div class="step">
-      <label>⑧ 真ん中写真「ズームアップ時」のエフェクト</label>
+      <label>⑧ 真ん中写真「ズームアップ時」のエフェクト (出っぱなし)</label>
       <label class="checkbox-wrap" style="margin-bottom:8px;">
         <input type="checkbox" id="c-zoom-effect-on" checked> ズーム時のエフェクトを有効にする
       </label>
@@ -194,10 +202,10 @@
           <option value="star">⭐ スター</option>
           <option value="bubble">🫧 バブル</option>
         </select>
-        <label style="margin-top:8px;">サイズ・広がり:</label>
+        <label style="margin-top:8px;">サイズ・広がり (最大8倍):</label>
         <div class="range-wrap">
-          <input type="range" id="c-zoom-effect-size" min="1.0" max="5.0" step="0.5" value="3.5" oninput="document.getElementById('zoom-effect-size-val').textContent = this.value">
-          <span class="range-val" id="zoom-effect-size-val">3.5</span>倍
+          <input type="range" id="c-zoom-effect-size" min="1.0" max="8.0" step="0.5" value="4.0" oninput="document.getElementById('zoom-effect-size-val').textContent = this.value">
+          <span class="range-val" id="zoom-effect-size-val">4.0</span>倍
         </div>
       </div>
     </div>
@@ -211,7 +219,20 @@
     </div>
 
     <button class="generate-btn" id="c-btn" onclick="generateCorkboard()">トランジション動画を生成 (約3.5秒)</button>
+
+    <!-- 再生ウィンドウ（キャンバス） -->
+    <canvas id="canvas" class="main-canvas" width="1920" height="1080"></canvas>
+
+    <!-- ダウンロードボタンをウィンドウの下側に移動 -->
     <a id="c-download" class="download-link" download="corkboard_transition.webm">📥 WebMをダウンロード</a>
+
+    <!-- プロモーションバナー -->
+    <div class="promo-section">                        
+      <a href="https://twitter.com/futaba_to_siaki" target="_blank" class="promo-banner">                              
+        <img src="banner.png" alt="フタバとシアキの工房">                        
+      </a>                        
+      <a href="https://twitter.com/futaba_to_siaki" target="_blank" class="twitter-link">      これ置いた人の𝕏    </a>                  
+    </div>
 
     <div class="obs-guide">
       <h4>📌 OBS設定ガイド (コルクボード型)</h4>
@@ -221,8 +242,6 @@
       </ul>
     </div>
   </div>
-
-  <canvas id="canvas" class="main-canvas" width="1920" height="1080"></canvas>
 </div>
 
 <script>
@@ -424,8 +443,8 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
-// エフェクトパーティクル描画
-function drawCustomEffect(x, y, progress, effectType, sizeMultiplier) {
+// 登場時のエフェクト（パッと広がって消える）
+function drawSpawnEffect(x, y, progress, effectType, sizeMultiplier) {
   if (progress <= 0 || progress >= 1) return;
   ctx.save();
   
@@ -449,6 +468,42 @@ function drawCustomEffect(x, y, progress, effectType, sizeMultiplier) {
     ctx.globalAlpha = Math.max(0, alpha);
     
     const fontSize = Math.floor((28 + (i % 3) * 10) * Math.min(sizeMultiplier, 2.2));
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.fillText(symbols[i % symbols.length], px, py);
+  }
+  ctx.restore();
+}
+
+// ズーム中の持続エフェクト（ズーム開始から終了まで出っぱなし）
+function drawContinuousZoomEffect(x, y, zoomProgress, effectType, sizeMultiplier) {
+  if (zoomProgress <= 0 || zoomProgress >= 1) return;
+  ctx.save();
+
+  let symbols = ['✨', '⭐', '💫'];
+  if (effectType === 'heart') symbols = ['💖', '💕', '💗', '💓'];
+  else if (effectType === 'fireworks') symbols = ['🎆', '🎇', '✨', '🌟'];
+  else if (effectType === 'clover') symbols = ['🍀', '🌿', '✨'];
+  else if (effectType === 'star') symbols = ['⭐', '🌟', '✨'];
+  else if (effectType === 'bubble') symbols = ['🫧', '💧', '✨'];
+
+  const count = 12;
+  const baseDist = 140 * sizeMultiplier;
+
+  // ズームが進むにつれて少し回転させながら常時表示
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + (zoomProgress * Math.PI * 2) + (i * 0.2);
+    // 揺らぎを持たせる
+    const dist = baseDist + Math.sin(zoomProgress * Math.PI * 4 + i) * 20;
+    const px = x + Math.cos(angle) * dist;
+    const py = y + Math.sin(angle) * dist;
+
+    // スタート時と終了時に自然にフェードイン・フェードアウト
+    let alpha = 1.0;
+    if (zoomProgress < 0.15) alpha = zoomProgress / 0.15;
+    if (zoomProgress > 0.85) alpha = (1.0 - zoomProgress) / 0.15;
+
+    ctx.globalAlpha = Math.max(0, alpha);
+    const fontSize = Math.floor((30 + (i % 3) * 12) * Math.min(sizeMultiplier, 2.5));
     ctx.font = `${fontSize}px sans-serif`;
     ctx.fillText(symbols[i % symbols.length], px, py);
   }
@@ -496,21 +551,20 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
   ctx.shadowColor = 'transparent';
   ctx.beginPath(); ctx.arc(-3, pinY - 3, 3, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
 
-  // 大きめ＆ランダムカラーのマスキングテープ風飾り
+  // マスキングテープ風の飾り
   if (hasMaskingTape) {
     const tapeColors = [
-      'rgba(241, 196, 15, 0.75)', // 黄色
-      'rgba(231, 76, 60, 0.75)',  // 赤・ピンク
-      'rgba(52, 152, 219, 0.75)', // 青
-      'rgba(155, 89, 182, 0.75)',// 紫
-      'rgba(46, 204, 113, 0.75)'  // 緑
+      'rgba(241, 196, 15, 0.75)',
+      'rgba(231, 76, 60, 0.75)',
+      'rgba(52, 152, 219, 0.75)',
+      'rgba(155, 89, 182, 0.75)',
+      'rgba(46, 204, 113, 0.75)'
     ];
-    // seed値を使って写真ごとにテープの色を固定でランダム変化させる
     ctx.fillStyle = tapeColors[seed % tapeColors.length];
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 1;
 
-    // 左上の角に大きめテープ
+    // 左上の角にテープ
     ctx.save();
     ctx.translate(-bw/2 - padding + 8, -bh/2 - padding + 8);
     ctx.rotate(-Math.PI / 5);
@@ -518,7 +572,7 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
     ctx.strokeRect(-35, -12, 70, 24);
     ctx.restore();
 
-    // 右上の角に大きめテープ (色違い)
+    // 右上の角にテープ
     ctx.fillStyle = tapeColors[(seed + 2) % tapeColors.length];
     ctx.save();
     ctx.translate(bw/2 + padding - 8, -bh/2 - padding + 8);
@@ -604,28 +658,28 @@ async function generateCorkboard() {
       const pTL = getProgress(elapsed, 300, 750);
       if (pTL > 0) {
         drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c', false, 0, null, hasTape, 1);
-        if (spawnOn) drawCustomEffect(w * 0.22, h * 0.28, pTL, spawnType, spawnSize);
+        if (spawnOn) drawSpawnEffect(w * 0.22, h * 0.28, pTL, spawnType, spawnSize);
       }
 
       // 2. 右上写真
       const pTR = getProgress(elapsed, 400, 850);
       if (pTR > 0) {
         drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db', false, 0, null, hasTape, 3);
-        if (spawnOn) drawCustomEffect(w * 0.78, h * 0.28, pTR, spawnType, spawnSize);
+        if (spawnOn) drawSpawnEffect(w * 0.78, h * 0.28, pTR, spawnType, spawnSize);
       }
 
       // 4. 左下写真
       const pBL = getProgress(elapsed, 500, 950);
       if (pBL > 0) {
         drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6', false, 0, null, hasTape, 5);
-        if (spawnOn) drawCustomEffect(w * 0.22, h * 0.72, pBL, spawnType, spawnSize);
+        if (spawnOn) drawSpawnEffect(w * 0.22, h * 0.72, pBL, spawnType, spawnSize);
       }
 
       // 5. 右下写真
       const pBR = getProgress(elapsed, 600, 1050);
       if (pBR > 0) {
         drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71', false, 0, null, hasTape, 7);
-        if (spawnOn) drawCustomEffect(w * 0.78, h * 0.72, pBR, spawnType, spawnSize);
+        if (spawnOn) drawSpawnEffect(w * 0.78, h * 0.72, pBR, spawnType, spawnSize);
       }
 
       // 3. 真ん中メイン写真
@@ -638,11 +692,11 @@ async function generateCorkboard() {
         const rot = 4 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - zoomProg);
         
         drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint, hasTape, 9);
-        if (spawnOn) drawCustomEffect(w/2, h/2, pCenterPop, spawnType, spawnSize);
+        if (spawnOn) drawSpawnEffect(w/2, h/2, pCenterPop, spawnType, spawnSize);
 
-        // ★真ん中写真がズームアップした瞬間に中心点からパーッと広がるエフェクト
+        // ★ズームスタートから消えるまで出っぱなしのエフェクト
         if (zoomOn && pCenterZoom > 0) {
-          drawCustomEffect(w/2, h/2, pCenterZoom, zoomType, zoomSize);
+          drawContinuousZoomEffect(w/2, h/2, pCenterZoom, zoomType, zoomSize);
         }
       }
 
