@@ -8,7 +8,7 @@
     .container { max-width: 680px; margin: 0 auto; background: #333; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
     h2 { margin-top: 0; text-align: center; border-bottom: 2px solid #555; padding-bottom: 10px; }
     
-    /* タブ切り替えボタンのデザイン */
+    /* タブ切り替えボタン */
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
     .tab-btn { flex: 1; padding: 12px; background: #444; border: none; color: #aaa; font-weight: bold; font-size: 1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     .tab-btn.active { background: #007bff; color: #fff; }
@@ -28,8 +28,15 @@
       width: 100%; aspect-ratio: 16/9; margin-top: 20px; border: 2px solid #111; border-radius: 4px;
       background: #111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23222"/><rect x="10" y="10" width="10" height="10" fill="%23222"/></svg>') repeat; 
     }
+    
     .download-link { display: none; text-align: center; background: #e67e22; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
     .download-link:hover { background: #d35400; }
+    
+    /* OBS設定ガイドのボックス */
+    .obs-guide { background: #222; border-left: 4px solid #f1c40f; padding: 12px 15px; margin-top: 15px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5; }
+    .obs-guide h4 { margin: 0 0 5px 0; color: #f1c40f; }
+    .obs-guide ul { margin: 0; padding-left: 20px; color: #ccc; }
+
     .note { font-size: 0.85rem; color: #aaa; margin-top: 5px; }
   </style>
 </head>
@@ -40,8 +47,8 @@
   
   <!-- タブボタン -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('simple')">1. シンプル切替型 (画像2枚 + エフェクト)</button>
-    <button class="tab-btn" onclick="switchTab('corkboard')">2. コルクボード型 (写真3枚 + ズーム)</button>
+    <button class="tab-btn active" onclick="switchTab('simple')">1. シンプル切替型</button>
+    <button class="tab-btn" onclick="switchTab('corkboard')">2. コルクボード型</button>
   </div>
 
   <!-- ================= タブ1: シンプル切替型 ================= -->
@@ -80,6 +87,15 @@
     </div>
     <button class="generate-btn" id="s-btn" onclick="generateSimple()">トランジション動画を生成 (約3秒)</button>
     <a id="s-download" class="download-link" download="simple_transition.webm">📥 WebMをダウンロード</a>
+
+    <div class="obs-guide">
+      <h4>📌 OBS設定ガイド (シンプル切替型)</h4>
+      <ul>
+        <li><b>トランジションの種類:</b> スティンガー</li>
+        <li><b>動画ファイル:</b> ダウンロードしたファイルを選択</li>
+        <li><b>トランジションポイント (ミリ秒):</b> <code>1500</code></li>
+      </ul>
+    </div>
   </div>
 
   <!-- ================= タブ2: コルクボード型 ================= -->
@@ -95,10 +111,30 @@
     <div class="step">
       <label>③ 中央に飾る写真（★最後にズームされるメイン）</label>
       <input type="file" id="c-img3" accept="image/png, image/jpeg">
-      <div class="note">※VRChat等の横長・縦長16:9の写真に合わせて自動で白フチと画鋲がフィットします</div>
+      <div class="note">※VRChat等の写真の比率に合わせて白フチと画鋲が自動フィットします</div>
+    </div>
+    <div class="step">
+      <label>④ 中央写真の「アップ（ズーム）する位置」を指定</label>
+      <select id="c-focus">
+        <option value="center">中央をアップ (デフォルト)</option>
+        <option value="top">上側をアップ (顔など)</option>
+        <option value="bottom">下側をアップ</option>
+        <option value="left">左側をアップ</option>
+        <option value="right">右側をアップ</option>
+      </select>
+      <div class="note">※ズームアップする時に写真のどの部分を大きくするか選べます</div>
     </div>
     <button class="generate-btn" id="c-btn" onclick="generateCorkboard()">トランジション動画を生成 (約3.5秒)</button>
     <a id="c-download" class="download-link" download="corkboard_transition.webm">📥 WebMをダウンロード</a>
+
+    <div class="obs-guide">
+      <h4>📌 OBS設定ガイド (コルクボード型)</h4>
+      <ul>
+        <li><b>トランジションの種類:</b> スティンガー</li>
+        <li><b>動画ファイル:</b> ダウンロードしたファイルを選択</li>
+        <li><b>トランジションポイント (ミリ秒):</b> <code>2800</code> (※中央の写真が一番大きくなってぼやけた瞬間)</li>
+      </ul>
+    </div>
   </div>
 
   <!-- 共有プレビュー用キャンバス -->
@@ -110,7 +146,6 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const fps = 60;
 
-// タブ切り替え関数
 function switchTab(type) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -124,7 +159,6 @@ function switchTab(type) {
   }
 }
 
-// 共通の画像読み込みヘルパー
 const loadImage = (file) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject('画像がすべて選択されているか確認してください。');
@@ -181,14 +215,12 @@ async function generateSimple() {
       ctx.clearRect(0, 0, w, h);
 
       if (elapsed < phaseDuration) {
-        // Phase 1
         const p = ease(elapsed / phaseDuration);
         ctx.globalAlpha = fx1 === 'fade' ? p : 1;
         if(fx1 === 'slide-left') ctx.drawImage(img1, w * (1 - p), 0, w, h);
         else if(fx1 === 'slide-up') ctx.drawImage(img1, 0, h * (1 - p), w, h);
         else ctx.drawImage(img1, 0, 0, w, h);
       } else if (elapsed < phaseDuration * 2) {
-        // Phase 2
         const p = ease((elapsed - phaseDuration) / phaseDuration);
         ctx.globalAlpha = 1;
         if(fx2 === 'fade') {
@@ -203,7 +235,6 @@ async function generateSimple() {
           ctx.drawImage(img2, 0, h * (1 - p), w, h);
         }
       } else if (elapsed < totalDuration) {
-        // Phase 3
         const p = ease((elapsed - phaseDuration * 2) / phaseDuration);
         ctx.globalAlpha = fx3 === 'fade' ? (1 - p) : 1;
         if(fx3 === 'slide-left') ctx.drawImage(img2, -w * p, 0, w, h);
@@ -225,7 +256,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型のロジック (縦横16:9自動対応)
+// 2. コルクボード型のロジック (フォーカス位置対応)
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -241,40 +272,39 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
-function drawPhoto(img, x, y, scale, rotation, pinColor) {
+function drawPhoto(img, x, y, scale, rotation, pinColor, focus = 'center', isZooming = false) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
   ctx.scale(scale, scale);
 
-  // 写真の縦横比を判定して、枠のサイズを自動切替 (16:9横長 vs 9:16縦長)
   const imgRatio = img.width / img.height;
   let bw, bh;
-  if (imgRatio > 1.1) {
-    // 横長写真 (16:9)
-    bw = 640; bh = 360;
-  } else if (imgRatio < 0.9) {
-    // 縦長写真 (9:16)
-    bw = 360; bh = 640;
-  } else {
-    // 正方形付近
-    bw = 480; bh = 480;
-  }
-  const padding = 20; // 白フチの太さ
+  if (imgRatio > 1.1) { bw = 640; bh = 360; }
+  else if (imgRatio < 0.9) { bw = 360; bh = 640; }
+  else { bw = 480; bh = 480; }
+  const padding = 20;
 
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 20; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 15;
 
-  // 白いフチ
   ctx.fillStyle = '#fdfdfd';
   ctx.fillRect(-bw/2 - padding, -bh/2 - padding, bw + padding*2, bh + padding*2);
 
   ctx.shadowColor = 'transparent';
-  
-  // 画像をそのままの比率でフィット描画 (トリミングなし)
-  ctx.drawImage(img, -bw/2, -bh/2, bw, bh);
 
-  // 画鋲の位置を枠の上の中心に合わせる
+  // ズーム時にフォーカス位置（どこをアップするか）に応じてオフセットを適用
+  let dx = -bw/2, dy = -bh/2, dw = bw, dh = bh;
+  if (isZooming && focus !== 'center') {
+    const shift = 0.25; // 寄せる強さ
+    if (focus === 'top') dy -= bh * shift;
+    if (focus === 'bottom') dy += bh * shift;
+    if (focus === 'left') dx -= bw * shift;
+    if (focus === 'right') dx += bw * shift;
+  }
+
+  ctx.drawImage(img, dx, dy, dw, dh);
+
   const pinY = -bh/2 - padding + 10;
   ctx.fillStyle = '#888';
   ctx.fillRect(-2, pinY, 4, 15);
@@ -289,6 +319,8 @@ function drawPhoto(img, x, y, scale, rotation, pinColor) {
 async function generateCorkboard() {
   const btn = document.getElementById('c-btn');
   const dl = document.getElementById('c-download');
+  const focusVal = document.getElementById('c-focus').value;
+
   try {
     btn.disabled = true;
     btn.textContent = '🎥 コルクボード生成中...';
@@ -349,7 +381,8 @@ async function generateCorkboard() {
         const baseScale = easeOutBack(pCenterPop);
         const zoomScale = baseScale + easeInOutCubic(pCenterZoom) * 3.5;
         const rot = 5 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - easeInOutCubic(pCenterZoom));
-        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f');
+        const isZooming = pCenterZoom > 0;
+        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', focusVal, isZooming);
       }
 
       ctx.globalAlpha = 1.0;
