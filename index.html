@@ -59,6 +59,7 @@
     .obs-guide ul { margin: 0; padding-left: 20px; color: #ccc; }
 
     .note { font-size: 0.85rem; color: #aaa; margin-top: 5px; }
+    .sub-group { margin-top: 10px; padding-left: 15px; border-left: 3px solid #666; }
   </style>
 </head>
 <body>
@@ -151,27 +152,53 @@
     <div class="step">
       <label>⑥ マスキングテープの装飾</label>
       <label class="checkbox-wrap">
-        <input type="checkbox" id="c-masking-tape" checked> 写真の角にマスキングテープを貼る
+        <input type="checkbox" id="c-masking-tape" checked> 写真の角に大きめのマスキングテープを貼る (色ランダム)
       </label>
     </div>
 
     <div class="step">
-      <label>⑦ 登場時の周囲エフェクト</label>
-      <select id="c-effect-type">
-        <option value="sparkle">✨ キラキラ</option>
-        <option value="heart">💖 ハート</option>
-        <option value="fireworks">🎆 花火・ポップ</option>
-        <option value="clover">🍀 クローバー</option>
-        <option value="star">⭐ スター</option>
-        <option value="bubble">🫧 バブル</option>
-      </select>
+      <label>⑦ 写真登場時の周囲エフェクト</label>
+      <label class="checkbox-wrap" style="margin-bottom:8px;">
+        <input type="checkbox" id="c-spawn-effect-on" checked> 登場エフェクトを有効にする
+      </label>
+      <div class="sub-group">
+        <label>種類:</label>
+        <select id="c-spawn-effect-type">
+          <option value="sparkle">✨ キラキラ</option>
+          <option value="heart">💖 ハート</option>
+          <option value="fireworks">🎆 花火・ポップ</option>
+          <option value="clover">🍀 クローバー</option>
+          <option value="star">⭐ スター</option>
+          <option value="bubble">🫧 バブル</option>
+        </select>
+        <label style="margin-top:8px;">サイズ・広がり:</label>
+        <div class="range-wrap">
+          <input type="range" id="c-spawn-effect-size" min="1.0" max="5.0" step="0.5" value="3.0" oninput="document.getElementById('spawn-size-val').textContent = this.value">
+          <span class="range-val" id="spawn-size-val">3.0</span>倍
+        </div>
+      </div>
     </div>
 
     <div class="step">
-      <label>⑧ エフェクトのサイズ・広がり</label>
-      <div class="range-wrap">
-        <input type="range" id="c-effect-size" min="0.5" max="5.0" step="0.5" value="2.0" oninput="document.getElementById('effect-size-val').textContent = this.value">
-        <span class="range-val" id="effect-size-val">2.0</span>倍
+      <label>⑧ 真ん中写真「ズームアップ時」のエフェクト</label>
+      <label class="checkbox-wrap" style="margin-bottom:8px;">
+        <input type="checkbox" id="c-zoom-effect-on" checked> ズーム時のエフェクトを有効にする
+      </label>
+      <div class="sub-group">
+        <label>種類:</label>
+        <select id="c-zoom-effect-type">
+          <option value="sparkle">✨ キラキラ</option>
+          <option value="heart" selected>💖 ハート</option>
+          <option value="fireworks">🎆 花火・ポップ</option>
+          <option value="clover">🍀 クローバー</option>
+          <option value="star">⭐ スター</option>
+          <option value="bubble">🫧 バブル</option>
+        </select>
+        <label style="margin-top:8px;">サイズ・広がり:</label>
+        <div class="range-wrap">
+          <input type="range" id="c-zoom-effect-size" min="1.0" max="5.0" step="0.5" value="3.5" oninput="document.getElementById('zoom-effect-size-val').textContent = this.value">
+          <span class="range-val" id="zoom-effect-size-val">3.5</span>倍
+        </div>
       </div>
     </div>
 
@@ -381,7 +408,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型 (5枚＋カスタムエフェクト＆マスキングテープ) のロジック
+// 2. コルクボード型ロジック
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -397,7 +424,7 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
-// カスタムエフェクトを描画する関数 (サイズ倍率対応)
+// エフェクトパーティクル描画
 function drawCustomEffect(x, y, progress, effectType, sizeMultiplier) {
   if (progress <= 0 || progress >= 1) return;
   ctx.save();
@@ -409,28 +436,26 @@ function drawCustomEffect(x, y, progress, effectType, sizeMultiplier) {
   else if (effectType === 'star') symbols = ['⭐', '🌟', '✨'];
   else if (effectType === 'bubble') symbols = ['🫧', '💧', '✨'];
 
-  const count = 8;
-  // スライダの倍率を反映して広がりを調整
-  const maxDist = 180 * sizeMultiplier;
+  const count = 10;
+  const maxDist = 220 * sizeMultiplier;
 
   for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + (i * 0.4);
-    const dist = progress * maxDist + (i * 5);
+    const angle = (i / count) * Math.PI * 2 + (i * 0.3);
+    const dist = progress * maxDist + (i * 8);
     const px = x + Math.cos(angle) * dist;
     const py = y + Math.sin(angle) * dist;
     
     const alpha = progress < 0.2 ? progress / 0.2 : 1 - (progress - 0.2) / 0.8;
     ctx.globalAlpha = Math.max(0, alpha);
     
-    // パーティクル自体のサイズも倍率に比例させる
-    const fontSize = Math.floor((22 + (i % 3) * 8) * Math.min(sizeMultiplier, 2.0));
+    const fontSize = Math.floor((28 + (i % 3) * 10) * Math.min(sizeMultiplier, 2.2));
     ctx.font = `${fontSize}px sans-serif`;
     ctx.fillText(symbols[i % symbols.length], px, py);
   }
   ctx.restore();
 }
 
-function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}, hasMaskingTape = true) {
+function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}, hasMaskingTape = true, seed = 1) {
   ctx.save();
 
   const imgRatio = img.width / img.height;
@@ -471,23 +496,35 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
   ctx.shadowColor = 'transparent';
   ctx.beginPath(); ctx.arc(-3, pinY - 3, 3, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
 
-  // マスキングテープ風の飾り（オプション）
+  // 大きめ＆ランダムカラーのマスキングテープ風飾り
   if (hasMaskingTape) {
+    const tapeColors = [
+      'rgba(241, 196, 15, 0.75)', // 黄色
+      'rgba(231, 76, 60, 0.75)',  // 赤・ピンク
+      'rgba(52, 152, 219, 0.75)', // 青
+      'rgba(155, 89, 182, 0.75)',// 紫
+      'rgba(46, 204, 113, 0.75)'  // 緑
+    ];
+    // seed値を使って写真ごとにテープの色を固定でランダム変化させる
+    ctx.fillStyle = tapeColors[seed % tapeColors.length];
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1;
+
+    // 左上の角に大きめテープ
     ctx.save();
-    ctx.fillStyle = 'rgba(241, 196, 15, 0.65);'; // 半透明の黄色のテープ
-    // 左上の角にテープ
-    ctx.save();
-    ctx.translate(-bw/2 - padding + 5, -bh/2 - padding + 5);
-    ctx.rotate(-Math.PI / 6);
-    ctx.fillRect(-25, -8, 50, 16);
+    ctx.translate(-bw/2 - padding + 8, -bh/2 - padding + 8);
+    ctx.rotate(-Math.PI / 5);
+    ctx.fillRect(-35, -12, 70, 24);
+    ctx.strokeRect(-35, -12, 70, 24);
     ctx.restore();
-    // 右上の角にテープ（色違いピンク系）
-    ctx.fillStyle = 'rgba(231, 76, 60, 0.65)';
+
+    // 右上の角に大きめテープ (色違い)
+    ctx.fillStyle = tapeColors[(seed + 2) % tapeColors.length];
     ctx.save();
-    ctx.translate(bw/2 + padding - 5, -bh/2 - padding + 5);
-    ctx.rotate(Math.PI / 6);
-    ctx.fillRect(-25, -8, 50, 16);
-    ctx.restore();
+    ctx.translate(bw/2 + padding - 8, -bh/2 - padding + 8);
+    ctx.rotate(Math.PI / 5);
+    ctx.fillRect(-35, -12, 70, 24);
+    ctx.strokeRect(-35, -12, 70, 24);
     ctx.restore();
   }
 
@@ -498,8 +535,17 @@ async function generateCorkboard() {
   const btn = document.getElementById('c-btn');
   const dl = document.getElementById('c-download');
   const zoomMultiplier = parseFloat(document.getElementById('c-zoom-level').value);
-  const effectType = document.getElementById('c-effect-type').value;
-  const effectSize = parseFloat(document.getElementById('c-effect-size').value);
+  
+  // 登場エフェクト設定
+  const spawnOn = document.getElementById('c-spawn-effect-on').checked;
+  const spawnType = document.getElementById('c-spawn-effect-type').value;
+  const spawnSize = parseFloat(document.getElementById('c-spawn-effect-size').value);
+
+  // ズーム時エフェクト設定
+  const zoomOn = document.getElementById('c-zoom-effect-on').checked;
+  const zoomType = document.getElementById('c-zoom-effect-type').value;
+  const zoomSize = parseFloat(document.getElementById('c-zoom-effect-size').value);
+
   const hasTape = document.getElementById('c-masking-tape').checked;
 
   try {
@@ -557,29 +603,29 @@ async function generateCorkboard() {
       // 1. 左上写真
       const pTL = getProgress(elapsed, 300, 750);
       if (pTL > 0) {
-        drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c', false, 0, null, hasTape);
-        drawCustomEffect(w * 0.22, h * 0.28, pTL, effectType, effectSize);
+        drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c', false, 0, null, hasTape, 1);
+        if (spawnOn) drawCustomEffect(w * 0.22, h * 0.28, pTL, spawnType, spawnSize);
       }
 
       // 2. 右上写真
       const pTR = getProgress(elapsed, 400, 850);
       if (pTR > 0) {
-        drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db', false, 0, null, hasTape);
-        drawCustomEffect(w * 0.78, h * 0.28, pTR, effectType, effectSize);
+        drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db', false, 0, null, hasTape, 3);
+        if (spawnOn) drawCustomEffect(w * 0.78, h * 0.28, pTR, spawnType, spawnSize);
       }
 
       // 4. 左下写真
       const pBL = getProgress(elapsed, 500, 950);
       if (pBL > 0) {
-        drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6', false, 0, null, hasTape);
-        drawCustomEffect(w * 0.22, h * 0.72, pBL, effectType, effectSize);
+        drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6', false, 0, null, hasTape, 5);
+        if (spawnOn) drawCustomEffect(w * 0.22, h * 0.72, pBL, spawnType, spawnSize);
       }
 
       // 5. 右下写真
       const pBR = getProgress(elapsed, 600, 1050);
       if (pBR > 0) {
-        drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71', false, 0, null, hasTape);
-        drawCustomEffect(w * 0.78, h * 0.72, pBR, effectType, effectSize);
+        drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71', false, 0, null, hasTape, 7);
+        if (spawnOn) drawCustomEffect(w * 0.78, h * 0.72, pBR, spawnType, spawnSize);
       }
 
       // 3. 真ん中メイン写真
@@ -591,8 +637,13 @@ async function generateCorkboard() {
         const zoomScale = baseScale + zoomProg * zoomMultiplier;
         const rot = 4 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - zoomProg);
         
-        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint, hasTape);
-        drawCustomEffect(w/2, h/2, pCenterPop, effectType, effectSize);
+        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint, hasTape, 9);
+        if (spawnOn) drawCustomEffect(w/2, h/2, pCenterPop, spawnType, spawnSize);
+
+        // ★真ん中写真がズームアップした瞬間に中心点からパーッと広がるエフェクト
+        if (zoomOn && pCenterZoom > 0) {
+          drawCustomEffect(w/2, h/2, pCenterZoom, zoomType, zoomSize);
+        }
       }
 
       ctx.globalAlpha = 1.0;
