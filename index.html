@@ -51,7 +51,6 @@
     }
     .thumb-tip { font-size: 0.8rem; color: #f1c40f; margin-top: 5px; }
 
-    /* ダウンロードリンクをプレビュー直下に移動 */
     .download-link { display: none; text-align: center; background: #e67e22; color: white; padding: 15px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
     .download-link:hover { background: #d35400; }
     
@@ -158,14 +157,22 @@
     </div>
 
     <div class="step">
-      <label>⑥ マスキングテープの装飾</label>
+      <label>⑥ 画質・負荷軽減モード (カクつく時におすすめ)</label>
+      <select id="c-quality-mode">
+        <option value="hd">軽量モード: HD (1280×720 / 30fps) - カクつき防止・スムーズ</option>
+        <option value="fhd">高画質モード: フルHD (1920×1080 / 60fps) - 高負荷</option>
+      </select>
+    </div>
+
+    <div class="step">
+      <label>⑦ マスキングテープの装飾</label>
       <label class="checkbox-wrap">
         <input type="checkbox" id="c-masking-tape" checked> 写真の角に大きめのマスキングテープを貼る (色ランダム)
       </label>
     </div>
 
     <div class="step">
-      <label>⑦ 写真登場時の周囲エフェクト</label>
+      <label>⑧ 写真登場時の周囲エフェクト</label>
       <label class="checkbox-wrap" style="margin-bottom:8px;">
         <input type="checkbox" id="c-spawn-effect-on" checked> 登場エフェクトを有効にする
       </label>
@@ -188,7 +195,7 @@
     </div>
 
     <div class="step">
-      <label>⑧ 真ん中写真「ズームアップ時」のエフェクト (出っぱなし)</label>
+      <label>⑨ 真ん中写真「ズームアップ時」のエフェクト (出っぱなし)</label>
       <label class="checkbox-wrap" style="margin-bottom:8px;">
         <input type="checkbox" id="c-zoom-effect-on" checked> ズーム時のエフェクトを有効にする
       </label>
@@ -211,7 +218,7 @@
     </div>
 
     <div class="step">
-      <label>⑨ 真ん中写真のズーム倍率</label>
+      <label>⑩ 真ん中写真のズーム倍率</label>
       <div class="range-wrap">
         <input type="range" id="c-zoom-level" min="2" max="9" step="0.5" value="5.0" oninput="document.getElementById('zoom-val').textContent = this.value">
         <span class="range-val" id="zoom-val">5.0</span>倍
@@ -223,7 +230,7 @@
     <!-- 再生ウィンドウ（キャンバス） -->
     <canvas id="canvas" class="main-canvas" width="1920" height="1080"></canvas>
 
-    <!-- ダウンロードボタンをウィンドウの下側に移動 -->
+    <!-- ダウンロードボタン -->
     <a id="c-download" class="download-link" download="corkboard_transition.webm">📥 WebMをダウンロード</a>
 
     <!-- プロモーションバナー -->
@@ -247,7 +254,6 @@
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const fps = 60;
 
 function switchTab(type) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -354,6 +360,9 @@ async function generateSimple() {
     btn.textContent = '生成中...';
     dl.style.display = 'none';
 
+    canvas.width = 1920;
+    canvas.height = 1080;
+
     const img1 = await loadImage(document.getElementById('s-img1').files[0]);
     const img2 = await loadImage(document.getElementById('s-img2').files[0]);
     const fx1 = document.getElementById('s-fx1').value;
@@ -362,7 +371,7 @@ async function generateSimple() {
 
     const phaseDuration = 1000;
     const totalDuration = 3000;
-    const stream = canvas.captureStream(fps);
+    const stream = canvas.captureStream(60);
     const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
     const chunks = [];
 
@@ -443,7 +452,7 @@ function createCorkPattern() {
   corkPattern = ctx.createPattern(c, 'repeat');
 }
 
-// 登場時のエフェクト（パッと広がって消える）
+// 登場時のエフェクト
 function drawSpawnEffect(x, y, progress, effectType, sizeMultiplier) {
   if (progress <= 0 || progress >= 1) return;
   ctx.save();
@@ -474,7 +483,7 @@ function drawSpawnEffect(x, y, progress, effectType, sizeMultiplier) {
   ctx.restore();
 }
 
-// ズーム中の持続エフェクト（ズーム開始から終了まで出っぱなし）
+// ズーム中の持続エフェクト
 function drawContinuousZoomEffect(x, y, zoomProgress, effectType, sizeMultiplier) {
   if (zoomProgress <= 0 || zoomProgress >= 1) return;
   ctx.save();
@@ -489,15 +498,12 @@ function drawContinuousZoomEffect(x, y, zoomProgress, effectType, sizeMultiplier
   const count = 12;
   const baseDist = 140 * sizeMultiplier;
 
-  // ズームが進むにつれて少し回転させながら常時表示
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2 + (zoomProgress * Math.PI * 2) + (i * 0.2);
-    // 揺らぎを持たせる
     const dist = baseDist + Math.sin(zoomProgress * Math.PI * 4 + i) * 20;
     const px = x + Math.cos(angle) * dist;
     const py = y + Math.sin(angle) * dist;
 
-    // スタート時と終了時に自然にフェードイン・フェードアウト
     let alpha = 1.0;
     if (zoomProgress < 0.15) alpha = zoomProgress / 0.15;
     if (zoomProgress > 0.85) alpha = (1.0 - zoomProgress) / 0.15;
@@ -510,15 +516,21 @@ function drawContinuousZoomEffect(x, y, zoomProgress, effectType, sizeMultiplier
   ctx.restore();
 }
 
-function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}, hasMaskingTape = true, seed = 1) {
+function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, zoomProgress = 0, focus = {x:0.5, y:0.5}, hasMaskingTape = true, seed = 1, isHD = false) {
   ctx.save();
 
   const imgRatio = img.width / img.height;
   let bw, bh;
-  if (imgRatio > 1.1) { bw = 540; bh = 303; }
-  else if (imgRatio < 0.9) { bw = 303; bh = 540; }
-  else { bw = 400; bh = 400; }
-  const padding = 18;
+  if (isHD) {
+    if (imgRatio > 1.1) { bw = 360; bh = 202; }
+    else if (imgRatio < 0.9) { bw = 202; bh = 360; }
+    else { bw = 280; bh = 280; }
+  } else {
+    if (imgRatio > 1.1) { bw = 540; bh = 303; }
+    else if (imgRatio < 0.9) { bw = 303; bh = 540; }
+    else { bw = 400; bh = 400; }
+  }
+  const padding = isHD ? 12 : 18;
 
   let drawX = x;
   let drawY = y;
@@ -531,27 +543,23 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
   ctx.rotate(rotation);
   ctx.scale(scale, scale);
 
-  // 影
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 22; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 15;
+  ctx.shadowBlur = isHD ? 14 : 22; ctx.shadowOffsetX = isHD ? 4 : 6; ctx.shadowOffsetY = isHD ? 10 : 15;
 
-  // 白フチ
   ctx.fillStyle = '#fdfdfd';
   ctx.fillRect(-bw/2 - padding, -bh/2 - padding, bw + padding*2, bh + padding*2);
 
   ctx.shadowColor = 'transparent';
   ctx.drawImage(img, -bw/2, -bh/2, bw, bh);
 
-  // 画鋲
-  const pinY = -bh/2 - padding + 10;
+  const pinY = -bh/2 - padding + (isHD ? 6 : 10);
   ctx.fillStyle = '#888';
-  ctx.fillRect(-2, pinY, 4, 15);
+  ctx.fillRect(-2, pinY, 4, isHD ? 10 : 15);
   ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 5;
-  ctx.beginPath(); ctx.arc(0, pinY, 13, 0, Math.PI * 2); ctx.fillStyle = pinColor; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, pinY, isHD ? 9 : 13, 0, Math.PI * 2); ctx.fillStyle = pinColor; ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.beginPath(); ctx.arc(-3, pinY - 3, 3, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(-2, pinY - 2, 2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
 
-  // マスキングテープ風の飾り
   if (hasMaskingTape) {
     const tapeColors = [
       'rgba(241, 196, 15, 0.75)',
@@ -564,21 +572,22 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 1;
 
-    // 左上の角にテープ
+    const tw = isHD ? 45 : 70;
+    const th = isHD ? 15 : 24;
+
     ctx.save();
-    ctx.translate(-bw/2 - padding + 8, -bh/2 - padding + 8);
+    ctx.translate(-bw/2 - padding + 6, -bh/2 - padding + 6);
     ctx.rotate(-Math.PI / 5);
-    ctx.fillRect(-35, -12, 70, 24);
-    ctx.strokeRect(-35, -12, 70, 24);
+    ctx.fillRect(-tw/2, -th/2, tw, th);
+    ctx.strokeRect(-tw/2, -th/2, tw, th);
     ctx.restore();
 
-    // 右上の角にテープ
     ctx.fillStyle = tapeColors[(seed + 2) % tapeColors.length];
     ctx.save();
-    ctx.translate(bw/2 + padding - 8, -bh/2 - padding + 8);
+    ctx.translate(bw/2 + padding - 6, -bh/2 - padding + 6);
     ctx.rotate(Math.PI / 5);
-    ctx.fillRect(-35, -12, 70, 24);
-    ctx.strokeRect(-35, -12, 70, 24);
+    ctx.fillRect(-tw/2, -th/2, tw, th);
+    ctx.strokeRect(-tw/2, -th/2, tw, th);
     ctx.restore();
   }
 
@@ -588,14 +597,13 @@ function drawPhoto(img, x, y, scale, rotation, pinColor, isCenterMain = false, z
 async function generateCorkboard() {
   const btn = document.getElementById('c-btn');
   const dl = document.getElementById('c-download');
+  const qualityMode = document.getElementById('c-quality-mode').value;
   const zoomMultiplier = parseFloat(document.getElementById('c-zoom-level').value);
   
-  // 登場エフェクト設定
   const spawnOn = document.getElementById('c-spawn-effect-on').checked;
   const spawnType = document.getElementById('c-spawn-effect-type').value;
   const spawnSize = parseFloat(document.getElementById('c-spawn-effect-size').value);
 
-  // ズーム時エフェクト設定
   const zoomOn = document.getElementById('c-zoom-effect-on').checked;
   const zoomType = document.getElementById('c-zoom-effect-type').value;
   const zoomSize = parseFloat(document.getElementById('c-zoom-effect-size').value);
@@ -607,6 +615,12 @@ async function generateCorkboard() {
     btn.textContent = '🎥 コルクボード生成中...';
     dl.style.display = 'none';
 
+    // 画質モードに応じて解像度とFPSを切替
+    const isHD = (qualityMode === 'hd');
+    canvas.width = isHD ? 1280 : 1920;
+    canvas.height = isHD ? 720 : 1080;
+    const targetFps = isHD ? 30 : 60;
+
     const imgTL = await loadImage(document.getElementById('c-img-tl').files[0]);
     const imgTR = await loadImage(document.getElementById('c-img-tr').files[0]);
     const imgC = cImgCenterObj || await loadImage(document.getElementById('c-img-c').files[0]);
@@ -616,7 +630,7 @@ async function generateCorkboard() {
     if (!corkPattern) createCorkPattern();
 
     const totalDuration = 3500;
-    const stream = canvas.captureStream(fps);
+    const stream = canvas.captureStream(targetFps);
     const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
     const chunks = [];
 
@@ -646,7 +660,6 @@ async function generateCorkboard() {
       ctx.globalAlpha = 1.0 - easeInOutCubic(pFade);
       ctx.filter = pFade > 0 ? `blur(${pFade * 40}px)` : 'none';
 
-      // コルクボード背景
       const pCork = getProgress(elapsed, 0, 400);
       ctx.save();
       ctx.translate(0, -h * (1 - easeOutCubic(pCork)));
@@ -654,35 +667,30 @@ async function generateCorkboard() {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
 
-      // 1. 左上写真
       const pTL = getProgress(elapsed, 300, 750);
       if (pTL > 0) {
-        drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c', false, 0, null, hasTape, 1);
+        drawPhoto(imgTL, w * 0.22, h * 0.28, easeOutBack(pTL), -10 * (Math.PI/180) * easeOutBack(pTL), '#e74c3c', false, 0, null, hasTape, 1, isHD);
         if (spawnOn) drawSpawnEffect(w * 0.22, h * 0.28, pTL, spawnType, spawnSize);
       }
 
-      // 2. 右上写真
       const pTR = getProgress(elapsed, 400, 850);
       if (pTR > 0) {
-        drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db', false, 0, null, hasTape, 3);
+        drawPhoto(imgTR, w * 0.78, h * 0.28, easeOutBack(pTR), 12 * (Math.PI/180) * easeOutBack(pTR), '#3498db', false, 0, null, hasTape, 3, isHD);
         if (spawnOn) drawSpawnEffect(w * 0.78, h * 0.28, pTR, spawnType, spawnSize);
       }
 
-      // 4. 左下写真
       const pBL = getProgress(elapsed, 500, 950);
       if (pBL > 0) {
-        drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6', false, 0, null, hasTape, 5);
+        drawPhoto(imgBL, w * 0.22, h * 0.72, easeOutBack(pBL), 8 * (Math.PI/180) * easeOutBack(pBL), '#9b59b6', false, 0, null, hasTape, 5, isHD);
         if (spawnOn) drawSpawnEffect(w * 0.22, h * 0.72, pBL, spawnType, spawnSize);
       }
 
-      // 5. 右下写真
       const pBR = getProgress(elapsed, 600, 1050);
       if (pBR > 0) {
-        drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71', false, 0, null, hasTape, 7);
+        drawPhoto(imgBR, w * 0.78, h * 0.72, easeOutBack(pBR), -14 * (Math.PI/180) * easeOutBack(pBR), '#2ecc71', false, 0, null, hasTape, 7, isHD);
         if (spawnOn) drawSpawnEffect(w * 0.78, h * 0.72, pBR, spawnType, spawnSize);
       }
 
-      // 3. 真ん中メイン写真
       const pCenterPop = getProgress(elapsed, 700, 1200);
       const pCenterZoom = getProgress(elapsed, 1800, 2600);
       if (pCenterPop > 0) {
@@ -691,10 +699,9 @@ async function generateCorkboard() {
         const zoomScale = baseScale + zoomProg * zoomMultiplier;
         const rot = 4 * (Math.PI/180) * easeOutBack(pCenterPop) * (1 - zoomProg);
         
-        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint, hasTape, 9);
+        drawPhoto(imgC, w/2, h/2, zoomScale, rot, '#f1c40f', true, zoomProg, focusPoint, hasTape, 9, isHD);
         if (spawnOn) drawSpawnEffect(w/2, h/2, pCenterPop, spawnType, spawnSize);
 
-        // ★ズームスタートから消えるまで出っぱなしのエフェクト
         if (zoomOn && pCenterZoom > 0) {
           drawContinuousZoomEffect(w/2, h/2, pCenterZoom, zoomType, zoomSize);
         }
