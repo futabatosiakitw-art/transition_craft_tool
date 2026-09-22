@@ -85,17 +85,17 @@
   <!-- ================= タブ2: コルクボード型 ================= -->
   <div id="tab-corkboard" class="tab-content">
     <div class="step">
-      <label>① 左側に飾る写真</label>
+      <label>① 左側に飾る写真 (横長・縦長どちらでもOK)</label>
       <input type="file" id="c-img1" accept="image/png, image/jpeg">
     </div>
     <div class="step">
-      <label>② 右側に飾る写真</label>
+      <label>② 右側に飾る写真 (横長・縦長どちらでもOK)</label>
       <input type="file" id="c-img2" accept="image/png, image/jpeg">
     </div>
     <div class="step">
       <label>③ 中央に飾る写真（★最後にズームされるメイン）</label>
       <input type="file" id="c-img3" accept="image/png, image/jpeg">
-      <div class="note">※自動でスナップ写真風の白フチと画鋲がつきます</div>
+      <div class="note">※VRChat等の横長・縦長16:9の写真に合わせて自動で白フチと画鋲がフィットします</div>
     </div>
     <button class="generate-btn" id="c-btn" onclick="generateCorkboard()">トランジション動画を生成 (約3.5秒)</button>
     <a id="c-download" class="download-link" download="corkboard_transition.webm">📥 WebMをダウンロード</a>
@@ -225,7 +225,7 @@ async function generateSimple() {
 }
 
 // ==========================================
-// 2. コルクボード型のロジック
+// 2. コルクボード型のロジック (縦横16:9自動対応)
 // ==========================================
 let corkPattern = null;
 function createCorkPattern() {
@@ -247,30 +247,41 @@ function drawPhoto(img, x, y, scale, rotation, pinColor) {
   ctx.rotate(rotation);
   ctx.scale(scale, scale);
 
-  const bw = 560, bh = 420, padding = 25;
+  // 写真の縦横比を判定して、枠のサイズを自動切替 (16:9横長 vs 9:16縦長)
+  const imgRatio = img.width / img.height;
+  let bw, bh;
+  if (imgRatio > 1.1) {
+    // 横長写真 (16:9)
+    bw = 640; bh = 360;
+  } else if (imgRatio < 0.9) {
+    // 縦長写真 (9:16)
+    bw = 360; bh = 640;
+  } else {
+    // 正方形付近
+    bw = 480; bh = 480;
+  }
+  const padding = 20; // 白フチの太さ
+
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 20; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 15;
 
+  // 白いフチ
   ctx.fillStyle = '#fdfdfd';
   ctx.fillRect(-bw/2 - padding, -bh/2 - padding, bw + padding*2, bh + padding*2);
 
   ctx.shadowColor = 'transparent';
-  const imgRatio = img.width / img.height, boxRatio = bw / bh;
-  let sx, sy, sw, sh;
-  if (imgRatio > boxRatio) {
-    sh = img.height; sw = img.height * boxRatio; sx = (img.width - sw) / 2; sy = 0;
-  } else {
-    sw = img.width; sh = img.width / boxRatio; sx = 0; sy = (img.height - sh) / 2;
-  }
-  ctx.drawImage(img, sx, sy, sw, sh, -bw/2, -bh/2, bw, bh);
+  
+  // 画像をそのままの比率でフィット描画 (トリミングなし)
+  ctx.drawImage(img, -bw/2, -bh/2, bw, bh);
 
-  const pinY = -bh/2 - padding + 15;
+  // 画鋲の位置を枠の上の中心に合わせる
+  const pinY = -bh/2 - padding + 10;
   ctx.fillStyle = '#888';
   ctx.fillRect(-2, pinY, 4, 15);
   ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 5;
-  ctx.beginPath(); ctx.arc(0, pinY, 16, 0, Math.PI * 2); ctx.fillStyle = pinColor; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, pinY, 14, 0, Math.PI * 2); ctx.fillStyle = pinColor; ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.beginPath(); ctx.arc(-5, pinY - 5, 5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(-4, pinY - 4, 4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
 
   ctx.restore();
 }
